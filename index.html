@@ -3,25 +3,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rendez-vous parents d'élèves</title>
+  <title>Rendez-vous de suivi de scolarité semestre 2</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
-    h1 { color: #2c3e50; }
-    .creneau { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; }
-    .creneau button { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
-    .creneau.pris { background: #f8f8f8; color: #999; }
-    .creneau.pris button { background: #ccc; cursor: not-allowed; }
-    #confirmation { background: #d4edda; padding: 20px; border-radius: 8px; display: none; }
-    #formulaire { background: #f0f4ff; padding: 20px; border-radius: 8px; margin: 20px 0; display: none; }
-    input { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; }
-    #formulaire button { background: #2980b9; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; color: #2c3e50; background: #f5f7fa; }
+    h1 { color: #2c3e50; margin-bottom: 10px; font-size: 1.6em; }
+    .intro { color: #555; margin-bottom: 30px; line-height: 1.6; }
+    .cards-jours { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 30px; }
+    .card-jour { background: white; border: 2px solid #dde3ec; border-radius: 12px; padding: 18px 22px; cursor: pointer; min-width: 140px; text-align: center; transition: all 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+    .card-jour:hover { border-color: #2980b9; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(41,128,185,0.15); }
+    .card-jour.actif { background: #2980b9; border-color: #2980b9; color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(41,128,185,0.3); }
+    .card-jour .jour-nom { font-weight: bold; font-size: 1em; margin-bottom: 4px; }
+    .card-jour .jour-date { font-size: 1.3em; font-weight: bold; margin-bottom: 6px; }
+    .card-jour .jour-dispo { font-size: 0.8em; opacity: 0.8; }
+    .card-jour.actif .jour-dispo { opacity: 0.9; }
+    .section-creneaux { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .section-creneaux h2 { margin-bottom: 15px; color: #2980b9; font-size: 1.1em; }
+    .jour { display: none; }
+    .jour.visible { display: block; }
+    .creneau { border: 1px solid #eee; padding: 14px 18px; margin: 8px 0; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; background: #fafafa; }
+    .creneau button { background: #27ae60; color: white; border: none; padding: 9px 18px; border-radius: 5px; cursor: pointer; font-size: 0.9em; }
+    .creneau button:hover { background: #219a52; }
+    .creneau.pris { background: #f0f0f0; color: #aaa; }
+    .creneau.pris button { background: #ddd; color: #999; cursor: not-allowed; }
+    #formulaire { background: white; padding: 25px; border-radius: 12px; margin: 20px 0; display: none; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+    #formulaire h3 { margin-bottom: 15px; color: #2c3e50; }
+    input { padding: 10px; margin: 6px 0; width: 100%; border: 1px solid #ddd; border-radius: 5px; font-size: 0.95em; }
+    #formulaire button { background: #2980b9; color: white; border: none; padding: 11px 22px; border-radius: 5px; cursor: pointer; margin-top: 10px; font-size: 0.95em; }
+    #formulaire button:hover { background: #2471a3; }
+    #confirmation { background: #d4edda; padding: 20px; border-radius: 12px; margin-top: 20px; display: none; }
+    #confirmation h3 { color: #155724; margin-bottom: 8px; }
+    #confirmation p { color: #155724; }
   </style>
 </head>
 <body>
-  <h1>📅 Prise de rendez-vous</h1>
-  <p>Bonjour, choisissez un créneau pour rencontrer l'enseignant(e). Les rendez-vous durent <strong>20 minutes</strong>.</p>
+  <h1>📅 Rendez-vous de suivi de scolarité semestre 2</h1>
+  <p class="intro">Bonjour, choisissez un créneau pour me rencontrer. Les rendez-vous durent <strong>20 minutes</strong>.</p>
 
-  <div id="liste-creneaux">Chargement des créneaux...</div>
+  <div class="cards-jours" id="cards-jours"></div>
+
+  <div class="section-creneaux" id="section-creneaux" style="display:none">
+    <h2 id="titre-jour"></h2>
+    <div id="liste-creneaux"></div>
+  </div>
 
   <div id="formulaire">
     <h3>Vos informations</h3>
@@ -51,77 +75,78 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Importer tous les créneaux
-    const CRENEAUX = [
-      {date:"2026-06-08",heure:"08h00"},{date:"2026-06-08",heure:"11h40"},
-      {date:"2026-06-08",heure:"12h00"},{date:"2026-06-08",heure:"16h30"},
-      {date:"2026-06-08",heure:"16h50"},{date:"2026-06-08",heure:"17h10"},
-      {date:"2026-06-08",heure:"17h30"},{date:"2026-06-08",heure:"17h50"},
-      {date:"2026-06-08",heure:"18h10"},{date:"2026-06-09",heure:"11h40"},
-      {date:"2026-06-09",heure:"12h00"},{date:"2026-06-09",heure:"16h30"},
-      {date:"2026-06-09",heure:"16h50"},{date:"2026-06-09",heure:"17h10"},
-      {date:"2026-06-15",heure:"11h40"},{date:"2026-06-15",heure:"12h00"},
-      {date:"2026-06-15",heure:"16h30"},{date:"2026-06-15",heure:"16h50"},
-      {date:"2026-06-15",heure:"17h10"},{date:"2026-06-15",heure:"17h30"},
-      {date:"2026-06-15",heure:"17h50"},{date:"2026-06-15",heure:"18h10"},
-      {date:"2026-06-16",heure:"11h40"},{date:"2026-06-16",heure:"12h00"},
-      {date:"2026-06-16",heure:"16h30"},{date:"2026-06-16",heure:"16h50"},
-      {date:"2026-06-16",heure:"17h10"},{date:"2026-06-22",heure:"08h00"},
-      {date:"2026-06-22",heure:"11h40"},{date:"2026-06-22",heure:"12h00"},
-      {date:"2026-06-22",heure:"16h30"},{date:"2026-06-22",heure:"16h50"},
-      {date:"2026-06-22",heure:"17h10"},{date:"2026-06-22",heure:"17h30"},
-      {date:"2026-06-22",heure:"17h50"},{date:"2026-06-22",heure:"18h10"},
-      {date:"2026-06-23",heure:"11h40"},{date:"2026-06-23",heure:"12h00"},
-      {date:"2026-06-23",heure:"16h30"},{date:"2026-06-23",heure:"16h50"},
-      {date:"2026-06-23",heure:"17h10"},{date:"2026-06-25",heure:"11h40"},
-      {date:"2026-06-25",heure:"12h00"},{date:"2026-06-25",heure:"16h30"},
-      {date:"2026-06-25",heure:"16h50"},{date:"2026-06-25",heure:"17h10"}
-    ];
-
-    // Initialiser les créneaux dans Firebase si nécessaire
-    async function initialiserCreneaux() {
-      const snapshot = await getDocs(collection(db, "creneaux"));
-      if (snapshot.size <= 1) {
-        for (const c of CRENEAUX) {
-          await addDoc(collection(db, "creneaux"), { ...c, disponible: true });
-        }
-      }
-    }
+    const jours = {
+      "2026-06-08": { nom: "Lundi", date: "8 juin" },
+      "2026-06-09": { nom: "Mardi", date: "9 juin" },
+      "2026-06-15": { nom: "Lundi", date: "15 juin" },
+      "2026-06-16": { nom: "Mardi", date: "16 juin" },
+      "2026-06-22": { nom: "Lundi", date: "22 juin" },
+      "2026-06-23": { nom: "Mardi", date: "23 juin" },
+      "2026-06-25": { nom: "Jeudi", date: "25 juin" }
+    };
 
     let creneauSelectionne = null;
-
-    const jours = {"2026-06-08":"Lundi 8 juin","2026-06-09":"Mardi 9 juin",
-      "2026-06-15":"Lundi 15 juin","2026-06-16":"Mardi 16 juin",
-      "2026-06-22":"Lundi 22 juin","2026-06-23":"Mardi 23 juin","2026-06-25":"Jeudi 25 juin"};
-
-    async function afficherCreneaux() {
-      await initialiserCreneaux();
-      const snapshot = await getDocs(query(collection(db, "creneaux"), orderBy("date"), orderBy("heure")));
-      const liste = document.getElementById("liste-creneaux");
-      liste.innerHTML = "";
-      let jourActuel = "";
-
-      snapshot.forEach((docSnap) => {
-        const c = docSnap.data();
-        if (c.date !== jourActuel) {
-          jourActuel = c.date;
-          liste.innerHTML += `<h2>${jours[c.date] || c.date}</h2>`;
-        }
-        const div = document.createElement("div");
-        div.className = "creneau" + (c.disponible ? "" : " pris");
-        div.innerHTML = `
-          <strong>${c.heure} - fin ${calculerFin(c.heure)}</strong>
-          <button ${c.disponible ? `onclick="window.choisirCreneau('${docSnap.id}','${c.date}','${c.heure}')"` : "disabled"}>
-            ${c.disponible ? "Choisir ce créneau" : "Déjà pris"}
-          </button>`;
-        liste.appendChild(div);
-      });
-    }
+    let tousLesCreneaux = {};
 
     function calculerFin(heure) {
       const [h, m] = heure.replace("h", ":").split(":").map(Number);
       const fin = new Date(2026, 0, 1, h, m + 20);
       return `${String(fin.getHours()).padStart(2,'0')}h${String(fin.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function afficherJour(date) {
+      document.querySelectorAll(".card-jour").forEach(c => c.classList.remove("actif"));
+      document.getElementById("card-" + date).classList.add("actif");
+
+      const section = document.getElementById("section-creneaux");
+      const liste = document.getElementById("liste-creneaux");
+      const titre = document.getElementById("titre-jour");
+
+      section.style.display = "block";
+      titre.textContent = `${jours[date].nom} ${jours[date].date}`;
+      liste.innerHTML = "";
+
+      tousLesCreneaux[date].forEach(c => {
+        const ligne = document.createElement("div");
+        ligne.className = "creneau" + (c.disponible ? "" : " pris");
+        ligne.innerHTML = `
+          <strong>${c.heure} — fin ${calculerFin(c.heure)}</strong>
+          <button ${c.disponible ? `onclick="window.choisirCreneau('${c.id}','${date}','${c.heure}')"` : "disabled"}>
+            ${c.disponible ? "Choisir ce créneau" : "Déjà pris"}
+          </button>`;
+        liste.appendChild(ligne);
+      });
+
+      section.scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function afficherCreneaux() {
+      const snapshot = await getDocs(query(collection(db, "creneaux"), orderBy("date"), orderBy("heure")));
+      tousLesCreneaux = {};
+
+      snapshot.forEach(docSnap => {
+        const c = docSnap.data();
+        if (!tousLesCreneaux[c.date]) tousLesCreneaux[c.date] = [];
+        tousLesCreneaux[c.date].push({ ...c, id: docSnap.id });
+      });
+
+      const container = document.getElementById("cards-jours");
+      container.innerHTML = "";
+
+      Object.keys(jours).forEach(date => {
+        if (!tousLesCreneaux[date]) return;
+        const dispo = tousLesCreneaux[date].filter(c => c.disponible).length;
+        const total = tousLesCreneaux[date].length;
+        const card = document.createElement("div");
+        card.className = "card-jour";
+        card.id = "card-" + date;
+        card.innerHTML = `
+          <div class="jour-nom">${jours[date].nom}</div>
+          <div class="jour-date">${jours[date].date}</div>
+          <div class="jour-dispo">${dispo}/${total} disponibles</div>`;
+        card.onclick = () => afficherJour(date);
+        container.appendChild(card);
+      });
     }
 
     window.choisirCreneau = function(id, date, heure) {
@@ -144,7 +169,7 @@
       document.getElementById("formulaire").style.display = "none";
       document.getElementById("confirmation").style.display = "block";
       document.getElementById("message-confirmation").textContent =
-        `Votre rendez-vous du ${jours[creneauSelectionne.date]} à ${creneauSelectionne.heure} a bien été enregistré. Un email de confirmation vous sera envoyé à ${email}.`;
+        `Votre rendez-vous du ${jours[creneauSelectionne.date].nom} ${jours[creneauSelectionne.date].date} à ${creneauSelectionne.heure} a bien été enregistré. Un email de confirmation vous sera envoyé à ${email}.`;
       afficherCreneaux();
     };
 
