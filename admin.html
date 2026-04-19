@@ -24,7 +24,9 @@
     #login input { padding: 10px; margin: 6px 0; width: 100%; border: 1px solid #ddd; border-radius: 5px; font-size: 0.95em; }
     #login button { background: #2980b9; color: white; border: none; padding: 11px 22px; border-radius: 5px; cursor: pointer; margin-top: 10px; width: 100%; font-size: 0.95em; }
     #tableau { display: none; }
-    .export-btn { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-bottom: 20px; font-size: 0.9em; }
+    .export-btn { color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-bottom: 20px; font-size: 0.9em; margin-right: 10px; }
+    .btn-vert { background: #27ae60; }
+    .btn-rouge { background: #e74c3c; }
   </style>
 </head>
 <body>
@@ -54,7 +56,8 @@
       </div>
     </div>
 
-    <button class="export-btn" onclick="exporterCSV()">📥 Exporter en CSV</button>
+    <button class="export-btn btn-vert" onclick="exporterCSV()">📥 Exporter en CSV</button>
+    <button class="export-btn btn-rouge" onclick="reinitialiser()">🔄 Réinitialiser tous les créneaux</button>
 
     <table>
       <thead>
@@ -73,7 +76,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAKPz6RCxakbIbfIatJ-oCHqJRxn7gZGTo",
@@ -113,7 +116,7 @@
     let toutesLesInscriptions = [];
 
     async function chargerDonnees() {
-      document.getElementById("date-maj").textContent = 
+      document.getElementById("date-maj").textContent =
         `Dernière mise à jour : ${new Date().toLocaleString("fr-FR")}`;
 
       const snapInscriptions = await getDocs(query(collection(db, "inscriptions"), orderBy("date"), orderBy("heure")));
@@ -162,6 +165,24 @@
       a.href = url;
       a.download = "inscriptions-rdv.csv";
       a.click();
+    };
+
+    window.reinitialiser = async function() {
+      if (!confirm("Remettre tous les créneaux en disponible et effacer toutes les inscriptions ?")) return;
+
+      const snapCreneaux = await getDocs(collection(db, "creneaux"));
+      const snapInscriptions = await getDocs(collection(db, "inscriptions"));
+
+      for (const docSnap of snapCreneaux.docs) {
+        await updateDoc(doc(db, "creneaux", docSnap.id), { disponible: true });
+      }
+
+      for (const docSnap of snapInscriptions.docs) {
+        await deleteDoc(doc(db, "inscriptions", docSnap.id));
+      }
+
+      alert("Réinitialisation terminée !");
+      chargerDonnees();
     };
   </script>
 </body>
