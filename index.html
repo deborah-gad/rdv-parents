@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rendez-vous de suivi de scolarité semestre 2</title>
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; color: #2c3e50; background: #f5f7fa; }
@@ -61,8 +60,8 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, getDocs, doc, updateDoc, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    window.onload = function() { import emailjs from 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/+esm'; emailjs.init("0vFSA0-aG0lazjt_2");("0vFSA0-aG0lazjt_2"); };
-
+import emailjs from 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/+esm';
+emailjs.init("0vFSA0-aG0lazjt_2");
     const firebaseConfig = {
       apiKey: "AIzaSyAKPz6RCxakbIbfIatJ-oCHqJRxn7gZGTo",
       authDomain: "rdv-parents-860b0.firebaseapp.com",
