@@ -166,10 +166,26 @@
         heure: creneauSelectionne.heure, dateReservation: new Date().toISOString()
       });
 
+      try {
+        await fetch("/.netlify/functions/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nom_enfant: nom,
+            email: email,
+            jour: jourTexte,
+            heure: creneauSelectionne.heure,
+            heure_fin: heureFin
+          })
+        });
+      } catch(e) {
+        console.log("Erreur mail:", e);
+      }
+
       document.getElementById("formulaire").style.display = "none";
       document.getElementById("confirmation").style.display = "block";
       document.getElementById("message-confirmation").textContent =
-        `Votre rendez-vous du ${jourTexte} à ${creneauSelectionne.heure} a bien été enregistré. Un email de confirmation vous sera envoyé prochainement à ${email}.`;
+        `Votre rendez-vous du ${jourTexte} à ${creneauSelectionne.heure} a bien été enregistré. Un email de confirmation vous a été envoyé à ${email}.`;
       afficherCreneaux();
     };
 
