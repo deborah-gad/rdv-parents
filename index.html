@@ -59,9 +59,6 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, getDocs, doc, updateDoc, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-    import emailjs from "https://esm.run/@emailjs/browser";
-
-    emailjs.init("0vFSA0-aG0lazjt_2");
 
     const firebaseConfig = {
       apiKey: "AIzaSyAKPz6RCxakbIbfIatJ-oCHqJRxn7gZGTo",
@@ -169,18 +166,10 @@
         heure: creneauSelectionne.heure, dateReservation: new Date().toISOString()
       });
 
-      await emailjs.send("service_l8ric2j", "template_gl3vlni", {
-        nom_enfant: nom,
-        email: email,
-        jour: jourTexte,
-        heure: creneauSelectionne.heure,
-        heure_fin: heureFin
-      });
-
       document.getElementById("formulaire").style.display = "none";
       document.getElementById("confirmation").style.display = "block";
       document.getElementById("message-confirmation").textContent =
-        `Votre rendez-vous du ${jourTexte} à ${creneauSelectionne.heure} a bien été enregistré. Un email de confirmation vous a été envoyé à ${email}.`;
+        `Votre rendez-vous du ${jourTexte} à ${creneauSelectionne.heure} a bien été enregistré. Un email de confirmation vous sera envoyé prochainement à ${email}.`;
       afficherCreneaux();
     };
 
