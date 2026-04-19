@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tableau de suivi - Rendez-vous parents</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; max-width: 1000px; margin: 40px auto; padding: 20px; color: #2c3e50; background: #f5f7fa; }
+    h1 { color: #2c3e50; margin-bottom: 10px; font-size: 1.6em; }
+    .stats { display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
+    .stat { background: white; border-radius: 12px; padding: 20px; text-align: center; flex: 1; min-width: 150px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+    .stat .nombre { font-size: 2em; font-weight: bold; color: #2980b9; }
+    .stat .label { font-size: 0.9em; color: #777; margin-top: 5px; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+    th { background: #2980b9; color: white; padding: 12px 15px; text-align: left; font-size: 0.9em; }
+    td { padding: 12px 15px; border-bottom: 1px solid #eee; font-size: 0.9em; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f0f4ff; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; }
+    .badge-vert { background: #d4edda; color: #155724; }
+    #login { background: white; padding: 30px; border-radius: 12px; max-width: 400px; margin: 100px auto; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+    #login h2 { margin-bottom: 20px; color: #2c3e50; }
+    #login input { padding: 10px; margin: 6px 0; width: 100%; border: 1px solid #ddd; border-radius: 5px; font-size: 0.95em; }
+    #login button { background: #2980b9; color: white; border: none; padding: 11px 22px; border-radius: 5px; cursor: pointer; margin-top: 10px; width: 100%; font-size: 0.95em; }
+    #tableau { display: none; }
+    .export-btn { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-bottom: 20px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+
+  <div id="login">
+    <h2>🔒 Accès administrateur</h2>
+    <input type="password" id="mot-de-passe" placeholder="Mot de passe">
+    <button onclick="verifierMotDePasse()">Accéder au tableau</button>
+  </div>
+
+  <div id="tableau">
+    <h1>📋 Tableau de suivi des rendez-vous</h1>
+    <p style="color:#777; margin-bottom:20px;" id="date-maj"></p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="nombre" id="total-inscriptions">0</div>
+        <div class="label">Inscriptions</div>
+      </div>
+      <div class="stat">
+        <div class="nombre" id="total-creneaux">0</div>
+        <div class="label">Créneaux disponibles</div>
+      </div>
+      <div class="stat">
+        <div class="nombre" id="total-pris">0</div>
+        <div class="label">Créneaux pris</div>
+      </div>
+    </div>
+
+    <button class="export-btn" onclick="exporterCSV()">📥 Exporter en CSV</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Nom de l'enfant</th>
+          <th>Email parent</th>
+          <th>Date</th>
+          <th>Heure</th>
+          <th>Réservé le</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody id="corps-tableau"></tbody>
+    </table>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAKPz6RCxakbIbfIatJ-oCHqJRxn7gZGTo",
+      authDomain: "rdv-parents-860b0.firebaseapp.com",
+      projectId: "rdv-parents-860b0",
+      storageBucket: "rdv-parents-860b0.firebasestorage.app",
+      messagingSenderId: "1001880241464",
+      appId: "1:1001880241464:web:d3d32cc524c109f8bf2dcd"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const MOT_DE_PASSE = "professeur2026";
+
+    const jours = {
+      "2026-06-08": "Lundi 8 juin",
+      "2026-06-09": "Mardi 9 juin",
+      "2026-06-15": "Lundi 15 juin",
+      "2026-06-16": "Mardi 16 juin",
+      "2026-06-22": "Lundi 22 juin",
+      "2026-06-23": "Mardi 23 juin",
+      "2026-06-25": "Jeudi 25 juin"
+    };
+
+    window.verifierMotDePasse = function() {
+      const mdp = document.getElementById("mot-de-passe").value;
+      if (mdp === MOT_DE_PASSE) {
+        document.getElementById("login").style.display = "none";
+        document.getElementById("tableau").style.display = "block";
+        chargerDonnees();
+      } else {
+        alert("Mot de passe incorrect !");
+      }
+    };
+
+    let toutesLesInscriptions = [];
+
+    async function chargerDonnees() {
+      document.getElementById("date-maj").textContent = 
+        `Dernière mise à jour : ${new Date().toLocaleString("fr-FR")}`;
+
+      const snapInscriptions = await getDocs(query(collection(db, "inscriptions"), orderBy("date"), orderBy("heure")));
+      const snapCreneaux = await getDocs(collection(db, "creneaux"));
+
+      const totalCreneaux = snapCreneaux.size;
+      const creneauxPris = [...snapCreneaux.docs].filter(d => !d.data().disponible).length;
+
+      document.getElementById("total-inscriptions").textContent = snapInscriptions.size;
+      document.getElementById("total-creneaux").textContent = totalCreneaux - creneauxPris;
+      document.getElementById("total-pris").textContent = creneauxPris;
+
+      toutesLesInscriptions = [];
+      const tbody = document.getElementById("corps-tableau");
+      tbody.innerHTML = "";
+
+      snapInscriptions.forEach(docSnap => {
+        const d = docSnap.data();
+        toutesLesInscriptions.push(d);
+        const dateRes = new Date(d.dateReservation).toLocaleString("fr-FR");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${d.nomEnfant}</strong></td>
+          <td>${d.email}</td>
+          <td>${jours[d.date] || d.date}</td>
+          <td>${d.heure}</td>
+          <td>${dateRes}</td>
+          <td><span class="badge badge-vert">✅ Confirmé</span></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    window.exporterCSV = function() {
+      const lignes = [["Nom enfant", "Email", "Date", "Heure", "Date réservation"]];
+      toutesLesInscriptions.forEach(d => {
+        lignes.push([
+          d.nomEnfant, d.email,
+          jours[d.date] || d.date, d.heure,
+          new Date(d.dateReservation).toLocaleString("fr-FR")
+        ]);
+      });
+      const csv = lignes.map(l => l.join(";")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "inscriptions-rdv.csv";
+      a.click();
+    };
+  </script>
+</body>
+</html>
