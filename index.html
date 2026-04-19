@@ -24,4 +24,167 @@
     .creneau.pris { background: #f0f0f0; color: #aaa; }
     .creneau.pris button { background: #ddd; color: #999; cursor: not-allowed; }
     #formulaire { background: white; padding: 25px; border-radius: 12px; margin: 20px 0; display: none; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
-    #formulaire h3 { margin-bottom: 1
+    #formulaire h3 { margin-bottom: 15px; color: #2c3e50; }
+    input { padding: 10px; margin: 6px 0; width: 100%; border: 1px solid #ddd; border-radius: 5px; font-size: 0.95em; }
+    #formulaire button { background: #2980b9; color: white; border: none; padding: 11px 22px; border-radius: 5px; cursor: pointer; margin-top: 10px; font-size: 0.95em; }
+    #formulaire button:hover { background: #2471a3; }
+    #confirmation { background: #d4edda; padding: 20px; border-radius: 12px; margin-top: 20px; display: none; }
+    #confirmation h3 { color: #155724; margin-bottom: 8px; }
+    #confirmation p { color: #155724; }
+  </style>
+</head>
+<body>
+  <h1>📅 Rendez-vous de suivi de scolarité semestre 2</h1>
+  <p class="intro">Bonjour, choisissez un créneau pour me rencontrer. Les rendez-vous durent <strong>20 minutes</strong>.</p>
+
+  <div class="cards-jours" id="cards-jours"></div>
+
+  <div class="section-creneaux" id="section-creneaux" style="display:none">
+    <h2 id="titre-jour"></h2>
+    <div id="liste-creneaux"></div>
+  </div>
+
+  <div id="formulaire">
+    <h3>Vos informations</h3>
+    <input type="text" id="nom-enfant" placeholder="Nom de l'enfant" required>
+    <input type="email" id="email" placeholder="Votre adresse email" required>
+    <button onclick="confirmerReservation()">Confirmer le rendez-vous</button>
+  </div>
+
+  <div id="confirmation">
+    <h3>✅ Rendez-vous confirmé !</h3>
+    <p id="message-confirmation"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import emailjs from "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/+esm";
+
+    emailjs.init("0vFSA0-aG0lazjt_2");
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAKPz6RCxakbIbfIatJ-oCHqJRxn7gZGTo",
+      authDomain: "rdv-parents-860b0.firebaseapp.com",
+      projectId: "rdv-parents-860b0",
+      storageBucket: "rdv-parents-860b0.firebasestorage.app",
+      messagingSenderId: "1001880241464",
+      appId: "1:1001880241464:web:d3d32cc524c109f8bf2dcd"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const jours = {
+      "2026-06-08": { nom: "Lundi", date: "8 juin" },
+      "2026-06-09": { nom: "Mardi", date: "9 juin" },
+      "2026-06-15": { nom: "Lundi", date: "15 juin" },
+      "2026-06-16": { nom: "Mardi", date: "16 juin" },
+      "2026-06-22": { nom: "Lundi", date: "22 juin" },
+      "2026-06-23": { nom: "Mardi", date: "23 juin" },
+      "2026-06-25": { nom: "Jeudi", date: "25 juin" }
+    };
+
+    let creneauSelectionne = null;
+    let tousLesCreneaux = {};
+
+    function calculerFin(heure) {
+      const [h, m] = heure.replace("h", ":").split(":").map(Number);
+      const fin = new Date(2026, 0, 1, h, m + 20);
+      return `${String(fin.getHours()).padStart(2,'0')}h${String(fin.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function afficherJour(date) {
+      document.querySelectorAll(".card-jour").forEach(c => c.classList.remove("actif"));
+      document.getElementById("card-" + date).classList.add("actif");
+
+      const section = document.getElementById("section-creneaux");
+      const liste = document.getElementById("liste-creneaux");
+      const titre = document.getElementById("titre-jour");
+
+      section.style.display = "block";
+      titre.textContent = `${jours[date].nom} ${jours[date].date}`;
+      liste.innerHTML = "";
+
+      tousLesCreneaux[date].forEach(c => {
+        const ligne = document.createElement("div");
+        ligne.className = "creneau" + (c.disponible ? "" : " pris");
+        ligne.innerHTML = `
+          <strong>${c.heure} — fin ${calculerFin(c.heure)}</strong>
+          <button ${c.disponible ? `onclick="window.choisirCreneau('${c.id}','${date}','${c.heure}')"` : "disabled"}>
+            ${c.disponible ? "Choisir ce créneau" : "Déjà pris"}
+          </button>`;
+        liste.appendChild(ligne);
+      });
+
+      section.scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function afficherCreneaux() {
+      const snapshot = await getDocs(query(collection(db, "creneaux"), orderBy("date"), orderBy("heure")));
+      tousLesCreneaux = {};
+
+      snapshot.forEach(docSnap => {
+        const c = docSnap.data();
+        if (!tousLesCreneaux[c.date]) tousLesCreneaux[c.date] = [];
+        tousLesCreneaux[c.date].push({ ...c, id: docSnap.id });
+      });
+
+      const container = document.getElementById("cards-jours");
+      container.innerHTML = "";
+
+      Object.keys(jours).forEach(date => {
+        if (!tousLesCreneaux[date]) return;
+        const dispo = tousLesCreneaux[date].filter(c => c.disponible).length;
+        const total = tousLesCreneaux[date].length;
+        const card = document.createElement("div");
+        card.className = "card-jour";
+        card.id = "card-" + date;
+        card.innerHTML = `
+          <div class="jour-nom">${jours[date].nom}</div>
+          <div class="jour-date">${jours[date].date}</div>
+          <div class="jour-dispo">${dispo}/${total} disponibles</div>`;
+        card.onclick = () => afficherJour(date);
+        container.appendChild(card);
+      });
+    }
+
+    window.choisirCreneau = function(id, date, heure) {
+      creneauSelectionne = { id, date, heure };
+      document.getElementById("formulaire").style.display = "block";
+      document.getElementById("formulaire").scrollIntoView({ behavior: "smooth" });
+    };
+
+    window.confirmerReservation = async function() {
+      const nom = document.getElementById("nom-enfant").value.trim();
+      const email = document.getElementById("email").value.trim();
+      if (!nom || !email) { alert("Merci de remplir tous les champs."); return; }
+
+      const heureFin = calculerFin(creneauSelectionne.heure);
+      const jourTexte = `${jours[creneauSelectionne.date].nom} ${jours[creneauSelectionne.date].date}`;
+
+      await updateDoc(doc(db, "creneaux", creneauSelectionne.id), { disponible: false });
+      await addDoc(collection(db, "inscriptions"), {
+        nomEnfant: nom, email, date: creneauSelectionne.date,
+        heure: creneauSelectionne.heure, dateReservation: new Date().toISOString()
+      });
+
+      await emailjs.send("service_l8ric2j", "umjl6xk", {
+        nom_enfant: nom,
+        email: email,
+        jour: jourTexte,
+        heure: creneauSelectionne.heure,
+        heure_fin: heureFin
+      });
+
+      document.getElementById("formulaire").style.display = "none";
+      document.getElementById("confirmation").style.display = "block";
+      document.getElementById("message-confirmation").textContent =
+        `Votre rendez-vous du ${jourTexte} à ${creneauSelectionne.heure} a bien été enregistré. Un email de confirmation vous a été envoyé à ${email}.`;
+      afficherCreneaux();
+    };
+
+    afficherCreneaux();
+  </script>
+</body>
+</html>
