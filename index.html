@@ -166,8 +166,9 @@
         heure: creneauSelectionne.heure, dateReservation: new Date().toISOString()
       });
 
+      let mailEnvoye = true;
       try {
-        await fetch("/.netlify/functions/send-email", {
+        const res = await fetch("/.netlify/functions/send-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -178,14 +179,20 @@
             heure_fin: heureFin
           })
         });
+        if (!res.ok) {
+          mailEnvoye = false;
+          console.error("Mail KO:", res.status, await res.text());
+        }
       } catch(e) {
-        console.log("Erreur mail:", e);
+        mailEnvoye = false;
+        console.error("Erreur mail:", e);
       }
 
       document.getElementById("formulaire").style.display = "none";
       document.getElementById("confirmation").style.display = "block";
-      document.getElementById("message-confirmation").textContent =
-        `Votre rendez-vous du ${jourTexte} à ${creneauSelectionne.heure} a bien été enregistré. Un email de confirmation vous a été envoyé à ${email}.`;
+      document.getElementById("message-confirmation").textContent = mailEnvoye
+        ? `Votre rendez-vous du ${jourTexte} à ${creneauSelectionne.heure} a bien été enregistré. Un email de confirmation vous a été envoyé à ${email}.`
+        : `Votre rendez-vous du ${jourTexte} à ${creneauSelectionne.heure} a bien été enregistré. L'email de confirmation n'a pas pu être envoyé — pensez à noter le créneau de votre côté.`;
       afficherCreneaux();
     };
 
