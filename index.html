@@ -146,16 +146,29 @@
       });
     }
 
+    let reservationEnCours = false;
+
     window.choisirCreneau = function(id, date, heure) {
       creneauSelectionne = { id, date, heure };
-      document.getElementById("formulaire").style.display = "block";
-      document.getElementById("formulaire").scrollIntoView({ behavior: "smooth" });
+      const formulaire = document.getElementById("formulaire");
+      const bouton = formulaire.querySelector("button");
+      bouton.disabled = false;
+      bouton.textContent = "Confirmer le rendez-vous";
+      formulaire.style.display = "block";
+      formulaire.scrollIntoView({ behavior: "smooth" });
     };
 
     window.confirmerReservation = async function() {
+      if (reservationEnCours) return;
+
       const nom = document.getElementById("nom-enfant").value.trim();
       const email = document.getElementById("email").value.trim();
       if (!nom || !email) { alert("Merci de remplir tous les champs."); return; }
+
+      reservationEnCours = true;
+      const bouton = document.querySelector("#formulaire button");
+      bouton.disabled = true;
+      bouton.textContent = "Envoi en cours...";
 
       const heureFin = calculerFin(creneauSelectionne.heure);
       const jourTexte = `${jours[creneauSelectionne.date].nom} ${jours[creneauSelectionne.date].date}`;
@@ -193,6 +206,7 @@
       document.getElementById("message-confirmation").textContent = mailEnvoye
         ? `Votre rendez-vous du ${jourTexte} à ${creneauSelectionne.heure} a bien été enregistré. Un email de confirmation vous a été envoyé à ${email}.`
         : `Votre rendez-vous du ${jourTexte} à ${creneauSelectionne.heure} a bien été enregistré. L'email de confirmation n'a pas pu être envoyé — pensez à noter le créneau de votre côté.`;
+      reservationEnCours = false;
       afficherCreneaux();
     };
 
