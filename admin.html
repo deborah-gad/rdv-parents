@@ -19,6 +19,8 @@
     tr:hover td { background: #f0f4ff; }
     .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; }
     .badge-vert { background: #d4edda; color: #155724; }
+    .btn-liberer { background: #e67e22; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.85em; }
+    .btn-liberer:hover { background: #ca6a14; }
     #login { background: white; padding: 30px; border-radius: 12px; max-width: 400px; margin: 100px auto; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
     #login h2 { margin-bottom: 20px; color: #2c3e50; }
     #login input { padding: 10px; margin: 6px 0; width: 100%; border: 1px solid #ddd; border-radius: 5px; font-size: 0.95em; }
@@ -68,6 +70,7 @@
           <th>Heure</th>
           <th>Réservé le</th>
           <th>Statut</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody id="corps-tableau"></tbody>
@@ -114,6 +117,7 @@
     };
 
     let toutesLesInscriptions = [];
+    let tousLesCreneaux = [];
 
     async function chargerDonnees() {
       document.getElementById("date-maj").textContent =
@@ -122,8 +126,9 @@
       const snapInscriptions = await getDocs(query(collection(db, "inscriptions"), orderBy("date"), orderBy("heure")));
       const snapCreneaux = await getDocs(collection(db, "creneaux"));
 
-      const totalCreneaux = snapCreneaux.size;
-      const creneauxPris = [...snapCreneaux.docs].filter(d => !d.data().disponible).length;
+      tousLesCreneaux = snapCreneaux.docs.map(d => ({ id: d.id, ...d.data() }));
+      const totalCreneaux = tousLesCreneaux.length;
+      const creneauxPris = tousLesCreneaux.filter(c => !c.disponible).length;
 
       document.getElementById("total-inscriptions").textContent = snapInscriptions.size;
       document.getElementById("total-creneaux").textContent = totalCreneaux - creneauxPris;
@@ -144,10 +149,23 @@
           <td>${jours[d.date] || d.date}</td>
           <td>${d.heure}</td>
           <td>${dateRes}</td>
-          <td><span class="badge badge-vert">✅ Confirmé</span></td>`;
+          <td><span class="badge badge-vert">✅ Confirmé</span></td>
+          <td><button class="btn-liberer" onclick="libererCreneau('${docSnap.id}', '${d.date}', '${d.heure}', '${d.nomEnfant.replace(/'/g, "\\'")}')">🔓 Libérer</button></td>`;
         tbody.appendChild(tr);
       });
     }
+
+    window.libererCreneau = async function(inscriptionId, date, heure, nomEnfant) {
+      const jourTexte = jours[date] || date;
+      if (!confirm(`Libérer le créneau du ${jourTexte} à ${heure} (${nomEnfant}) ?\n\nL'inscription sera supprimée et le créneau redeviendra disponible pour la réservation.`)) return;
+
+      const creneau = tousLesCreneaux.find(c => c.date === date && c.heure === heure);
+      if (creneau) {
+        await updateDoc(doc(db, "creneaux", creneau.id), { disponible: true });
+      }
+      await deleteDoc(doc(db, "inscriptions", inscriptionId));
+      chargerDonnees();
+    };
 
     window.exporterCSV = function() {
       const lignes = [["Nom enfant", "Email", "Date", "Heure", "Date réservation"]];
